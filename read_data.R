@@ -82,6 +82,113 @@ ggsave(
   bg = "white"
 )
 
+baseline_quadrant <- analysis_df %>%
+  group_by(ioname) %>%
+  slice_min(year, with_ties = FALSE) %>%
+  select(ioname, baseline_quadrant = shape_quadrant)
+
+
+baseline_location <- analysis_df %>%
+  group_by(ioname) %>%
+  slice_min(year, with_ties = FALSE) %>%
+  select(ioname, baseline_location = location)
+
+analysis_df <- analysis_df %>%
+  left_join(baseline_quadrant, by = "ioname")%>%
+  left_join(baseline_location, by = "ioname")
+
+baseline_autoc <- analysis_df %>%
+  group_by(ioname) %>%
+  slice_min(year, with_ties = FALSE) %>%
+  filter(location == "Authoritarian location") %>%
+  select(ioname)
+
+ggplot(
+  analysis_df %>% filter(baseline_location == "Authoritarian location"),
+  aes(x = year, y = mu_mean, group = ioname)
+) +
+  geom_line(alpha = 1, color = "#009E73") +
+  theme_minimal(base_family = "Times New Roman") +
+  labs(
+    x = "Year",
+    y = "IGO democracy mean (μ)",
+    title = "Trajectories of IGOs Initially Autocracy-Skewed",
+  )
+
+end_labels <- analysis_df %>%
+  semi_join(baseline_autoc, by = "ioname") %>%
+  group_by(ioname) %>%
+  filter(year == max(year)) %>%
+  ungroup()
+
+
+plot2 <- ggplot(
+  analysis_df %>% semi_join(baseline_autoc, by = "ioname"),
+  aes(x = year, y = mu_mean, group = ioname)
+) +
+  geom_line(
+    color = "#009E73",
+    alpha = 0.85,
+    linewidth = 0.6
+  ) +
+  
+  geom_text_repel(
+    data = end_labels,
+    aes(label = ioname, color = location),
+    size = 3,
+    family = "Times New Roman",
+    nudge_x = 2,
+    direction = "y",
+    segment.size = 0.25,
+    segment.alpha = 0.6,
+    max.overlaps = Inf
+  ) +
+  
+  scale_color_manual(
+    values = c(
+      "Authoritarian location" = "red",  # color-blind safe red
+      "Mixed location"         = "#7F7F7F",
+      "Democratic location"    = "#0072B2"   # color-blind safe blue
+    ),
+    name = "Final regime orientation"
+  ) +
+  
+  scale_x_continuous(expand = expansion(mult = c(0.02, 0.18))) +
+  labs(
+    x = "Year",
+    y = "IGO democracy beta mean (μ)",
+    title = "Trajectories of Initially Authoritarian IGOs Over Time",
+    subtitle = "Line paths show organizational drift; labels indicate final mean "
+  ) +
+  
+  theme_classic(base_family = "Times New Roman") +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 11),
+    legend.text  = element_text(size = 10),
+    
+    axis.title = element_text(size = 12),
+    axis.text  = element_text(size = 10),
+    
+    plot.title    = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    
+    panel.border = element_blank()
+  ) +
+  
+  coord_cartesian(clip = "off")
+
+
+ggsave(
+  filename = "~/Desktop/endo_igo/overleaf/aigo_trajectory.png",
+  plot = plot2,
+  width = 8.5,      # inches (fits \textwidth nicely)
+  height = 4.5,     # inches
+  dpi = 300,
+  units = "in",
+  bg = "white"
+)
+
 #Given where the IGO was last year, which processes predict its updated level this year?
 
 #1) incumbent pressure.  What regime orientation do existing members bring into year t?
@@ -165,6 +272,29 @@ analysis_df %>%
     pct_entry_event = mean(entry_event, na.rm = TRUE)
   )
 
+analysis_df <- analysis_df %>%
+  mutate(
+    endogenous_cross = quadrant_cross & incumbent_active & !entry_event
+  )
+
+analysis_df <- analysis_df %>%
+  mutate(
+    transition_type = case_when(
+      endogenous_cross &
+        lag_quadrant %in% c("Autocracy-skewed", "Democracy-skewed") &
+        shape_quadrant == "Unimodal"
+      ~ "Dominance erosion (skew → unimodal)",
+      TRUE ~ NA_character_
+    )
+  )
+
+
+analysis_df %>%
+  filter(!is.na(transition_type)) %>%
+  count(transition_type) %>%
+  mutate(share = n / sum(n))
+
+# regression
 bayes0 <- brm(
   mu_mean ~ incumbent_pressure + entry_pressure + year + (1 | ioname),
   data = analysis_df,
