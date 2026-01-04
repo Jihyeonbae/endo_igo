@@ -365,4 +365,88 @@ bayes1 <- brm(
   family = gaussian()
 )
 
+bayes0 <- brm(
+  mu_mean ~ incumbent_pressure + entry_pressure + year + (1 | ioname),
+  data = analysis_df,
+  family = gaussian()
+)
 
+bayes1 <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entry_pressure + year + (1 | ioname),
+  data = analysis_df,
+  family = gaussian()
+)
+
+bayes2 <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entry_pressure + phi_mean + n_founders + year + (1 | ioname),
+  data = analysis_df,
+  family = gaussian()
+)
+
+bayes2_fe <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entry_pressure + phi_mean + n_founders +
+    factor(year) + (1 | ioname),
+  data = analysis_df,
+  family = gaussian()
+)
+
+library(modelsummary)
+
+coef_plot <- modelplot(
+  bayes2_fe,
+  coef_omit = "Intercept|factoryear",
+  conf_level = 0.95
+) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
+  theme_classic(base_family = "Times New Roman") +
+  labs(
+    x = "Posterior estimate",
+    y = NULL,
+    title = "Drivers of IGO Regime Orientation",
+    subtitle = "Points show posterior means; bars indicate 95% credible intervals"
+  )
+
+coef_plot
+
+library(haven)
+MIA <- read_dta("MIA-V/DP_March 2023.dta")
+
+mia_attached <- analysis_df %>%
+  left_join(MIA, by=c("ioname","year"))
+
+
+bayes3 <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entry_pressure + poolaccess + delaccess + phi_mean +n_founders + year + (1 | ioname),
+  data = mia_attached,
+  family = gaussian()
+)
+
+bayes3_fe <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entry_pressure +
+    poolaccess + delaccess + phi_mean + n_founders +
+    factor(year) + (1 | ioname),
+  data = mia_attached,
+  family = gaussian()
+)
+
+bayes4 <- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entrant_mu + poolaccess + delaccess + phi_mean +n_founders + year + (1 | ioname),
+  data = mia_attached,
+  family = gaussian()
+)
+
+bayes4_fe<- brm(
+  mu_mean ~ lag_mu + incumbent_pressure + entrant_mu + phi_mean +n_founders + factor(year) + (1 | ioname),
+  data = analysis_df,
+  family = gaussian()
+)
+
+library(modelsummary)
+
+modelplot(
+  bayes3,
+  coef_omit = "Intercept",
+  conf_level = 0.95
+) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_classic()
